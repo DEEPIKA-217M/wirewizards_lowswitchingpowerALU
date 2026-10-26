@@ -1,69 +1,58 @@
-module alu_8bit (
-    input  wire [7:0] A,         
-    input  wire [7:0] B,        
-    input  wire [3:0] ALU_Sel,    
-    output reg  [7:0] ALU_Out,    
-    output reg        CarryOut,   
-    output wire       Zero        
+module alu_isolated (
+    input  wire [7:0] A,
+    input  wire [7:0] B,
+    input  wire [2:0] op,
+    output reg  [7:0] Y
 );
 
-    reg [8:0] temp; 
+   
+    wire en_arith;
+    wire en_logic;
+    wire en_shift;
+
+    assign en_arith = (op == 3'b000) || (op == 3'b001);
+
+    assign en_logic = (op == 3'b010) ||
+                      (op == 3'b011) ||
+                      (op == 3'b100) ||
+                      (op == 3'b101);
+
+    assign en_shift = (op == 3'b110) || (op == 3'b111);
+
     
-    assign Zero = (ALU_Out == 8'b0);
+    wire [7:0] A_arith = A & {8{.}};
+    wire [7:0] B_arith = B & {8{en_arith}};
 
+    wire [7:0] A_logic = A & {8{en_logic}};
+    wire [7:0] B_logic = B & {8{en_logic}};
+
+    wire [7:0] A_shift = A & {8{en_shift}};
+    wire [7:0] B_shift = B & {8{en_shift}};
+
+    
+    wire [7:0] add_result = A_arith + B_arith;
+    wire [7:0] sub_result = A_arith - B_arith;
+
+    wire [7:0] and_result = A_logic & B_logic;
+    wire [7:0] or_result  = A_logic | B_logic;
+    wire [7:0] xor_result = A_logic ^ B_logic;
+    wire [7:0] not_result = ~A_logic;
+
+    wire [7:0] left_result  = A_shift << B_shift[2:0];
+    wire [7:0] right_result = A_shift >> B_shift[2:0];
+
+    
     always @(*) begin
-        CarryOut = 1'b0;
-        temp     = 9'b0;
-
-        case (ALU_Sel)
-           
-            4'b0000: begin 
-                temp     = {1'b0, A} + {1'b0, B};
-                ALU_Out  = temp[7:0];
-                CarryOut = temp[8]; 
-            end
-
-            4'b0001: begin 
-                temp     = {1'b0, A} - {1'b0, B};
-                ALU_Out  = temp[7:0];
-                CarryOut = temp[8];  
-            end
-
-            4'b0010: begin 
-                temp     = A * B;
-                ALU_Out  = temp[7:0];
-                CarryOut = |temp[8]; 
-            end
-
-            4'b0011: begin 
-                if (B != 8'b0)
-                    ALU_Out = A / B;
-                else
-                    ALU_Out = 8'hFF; 
-            end
-
-            
-            4'b0100: ALU_Out = A << 1;               
-            4'b0101: ALU_Out = A >> 1;                
-            4'b0110: ALU_Out = {A[6:0], A[7]};       
-            4'b0111: ALU_Out = {A[0], A[7:1]};        
-
-           
-            4'b1000: ALU_Out = A & B;                
-            4'b1001: ALU_Out = A | B;                 
-            4'b1010: ALU_Out = A ^ B;                 
-            4'b1011: ALU_Out = ~(A | B);             
-            4'b1100: ALU_Out = ~(A & B);              
-            4'b1101: ALU_Out = ~(A ^ B);              
-
-            
-            4'b1110: ALU_Out = (A > B)  ? 8'd1 : 8'd0; 
-            4'b1111: ALU_Out = (A == B) ? 8'd1 : 8'd0; 
-
-            default: begin
-                ALU_Out  = 8'b0;
-                CarryOut = 1'b0;
-            end
+        case (op)
+            3'b000: Y = add_result;
+            3'b001: Y = sub_result;
+            3'b010: Y = and_result;
+            3'b011: Y = or_result;
+            3'b100: Y = xor_result;
+            3'b101: Y = ~A;
+            3'b110: Y = left_result;
+            3'b111: Y = right_result;
+            default: Y = 8'b0;
         endcase
     end
 
